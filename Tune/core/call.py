@@ -224,40 +224,58 @@ class Call:
                 pass
 
     @capture_internal_err
-    async def join_call(
-        self,
-        chat_id: int,
-        original_chat_id: int,
-        link: str,
-        video: Union[bool, str] = None,
-        image: Union[bool, str] = None,
-    ) -> None:
-        assistant = await group_assistant(self, chat_id)
-        lang = await get_lang(chat_id)
-        _ = get_string(lang)
+async def join_call(
+    self,
+    chat_id: int,
+    original_chat_id: int,
+    link: str,
+    video: Union[bool, str] = None,
+    image: Union[bool, str] = None,
+) -> None:
+    assistant = await group_assistant(self, chat_id)
+    lang = await get_lang(chat_id)
+    _ = get_string(lang)
+
+    # --- Validate the link ---
+    if not link:
+        await app.send_message(chat_id, "❌ Cannot join call: No media link provided.")
+        return
+
+    # If local file, check existence
+    from pathlib import Path
+    if isinstance(link, str) and not link.startswith("http") and not Path(link).exists():
+        await app.send_message(chat_id, f"❌ File does not exist: {link}")
+        return
+
+    # --- Safe stream creation ---
+    try:
         stream = dynamic_media_stream(path=link, video=bool(video))
+    except Exception as e:
+        await app.send_message(chat_id, f"❌ Failed to create media stream:\n<code>{e}</code>")
+        return
 
-        try:
-            await assistant.play(chat_id, stream)
-        except (NoActiveGroupCall, ChatAdminRequired):
-            raise AssistantErr(_["call_8"])
-        except TelegramServerError:
-            raise AssistantErr(_["call_10"])
-        except Exception as e:
-            raise AssistantErr(
-                f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}"
-            )
-        self.active_calls.add(chat_id)
-        await add_active_chat(chat_id)
-        await music_on(chat_id)
-        if video:
-            await add_active_video_chat(chat_id)
+    # --- Attempt to play ---
+    try:
+        await assistant.play(chat_id, stream)
+    except (NoActiveGroupCall, ChatAdminRequired):
+        raise AssistantErr(_["call_8"])
+    except TelegramServerError:
+        raise AssistantErr(_["call_10"])
+    except Exception as e:
+        raise AssistantErr(f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}")
 
-        if await is_autoend():
-            counter[chat_id] = {}
-            users = len(await assistant.get_participants(chat_id))
-            if users == 1:
-                autoend[chat_id] = datetime.now() + timedelta(minutes=1)
+    self.active_calls.add(chat_id)
+    await add_active_chat(chat_id)
+    await music_on(chat_id)
+    if video:
+        await add_active_video_chat(chat_id)
+
+    # --- Autoend logic ---
+    if await is_autoend():
+        counter[chat_id] = {}
+        users = len(await assistant.get_participants(chat_id))
+        if users == 1:
+            autoend[chat_id] = datetime.now() + timedelta(minutes=1)
 
 
     @capture_internal_err
