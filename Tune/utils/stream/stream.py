@@ -80,12 +80,17 @@ async def stream(
                     )
                 except:
                     raise AssistantErr(_["play_14"])
-                await JARVIS.join_call(
-                    chat_id,
-                    original_chat_id,
-                    file_path,
-                    video=status,
-                    image=thumbnail,
+                if not file_path:
+    await app.send_message(chat_id, "❌ Cannot play stream: media not found.")
+    return
+
+await JARVIS.join_call(
+    chat_id,
+    original_chat_id,
+    file_path,
+    video=status,
+    image=thumbnail,
+)
                 )
                 await put_queue(
                     chat_id,
