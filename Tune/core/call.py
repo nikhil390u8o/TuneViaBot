@@ -236,25 +236,20 @@ async def join_call(
     lang = await get_lang(chat_id)
     _ = get_string(lang)
 
-    # --- Validate the link ---
+    # --- PREVENT NONE LINK ---
     if not link:
         await app.send_message(chat_id, "❌ Cannot join call: No media link provided.")
-        return
+        return  # STOP here. No exception raised.
 
-    # If local file, check existence
+    # Local file check
     from pathlib import Path
     if isinstance(link, str) and not link.startswith("http") and not Path(link).exists():
         await app.send_message(chat_id, f"❌ File does not exist: {link}")
-        return
+        return  # STOP here
 
     # --- Safe stream creation ---
-    try:
-        stream = dynamic_media_stream(path=link, video=bool(video))
-    except Exception as e:
-        await app.send_message(chat_id, f"❌ Failed to create media stream:\n<code>{e}</code>")
-        return
+    stream = dynamic_media_stream(path=link, video=bool(video))
 
-    # --- Attempt to play ---
     try:
         await assistant.play(chat_id, stream)
     except (NoActiveGroupCall, ChatAdminRequired):
@@ -264,6 +259,7 @@ async def join_call(
     except Exception as e:
         raise AssistantErr(f"ᴜɴᴀʙʟᴇ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ ᴄᴀʟʟ.\nRᴇᴀsᴏɴ: {e}")
 
+    # Continue with active calls, music_on, autoend etc.
     self.active_calls.add(chat_id)
     await add_active_chat(chat_id)
     await music_on(chat_id)
