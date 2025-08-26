@@ -152,10 +152,14 @@ class Call:
 
 
     @capture_internal_err
-    async def skip_stream(self, chat_id: int, link: str, video: Union[bool, str] = None, image: Union[bool, str] = None) -> None:
-        assistant = await group_assistant(self, chat_id)
-        stream = dynamic_media_stream(path=link, video=bool(video))
+async def skip_stream(self, chat_id: int, link: str, video: Union[bool, str] = None, image: Union[bool, str] = None) -> None:
+    assistant = await group_assistant(self, chat_id)
+    try:
+        stream = safe_dynamic_media_stream(path=link, video=bool(video))
         await assistant.play(chat_id, stream)
+    except TypeError as e:
+        await app.send_message(chat_id, f"❌ Cannot skip: {e}")
+
 
     @capture_internal_err
     async def vc_users(self, chat_id: int) -> list:
