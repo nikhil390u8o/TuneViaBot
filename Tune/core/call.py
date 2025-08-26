@@ -37,15 +37,20 @@ from Tune.utils.errors import capture_internal_err, send_large_error
 autoend = {}
 counter = {}
 
-def dynamic_media_stream(path: str, video: bool = False, ffmpeg_params: str = None) -> MediaStream:
-    return MediaStream(
-        audio_path=path,
-        media_path=path,
-        audio_parameters=AudioQuality.MEDIUM if video else AudioQuality.STUDIO,
-        video_parameters=VideoQuality.HD_720p if video else VideoQuality.SD_360p,
-        video_flags=(MediaStream.Flags.AUTO_DETECT if video else MediaStream.Flags.IGNORE),
-        ffmpeg_parameters=ffmpeg_params,
-    )
+def safe_dynamic_media_stream(path, video=False, ffmpeg_params=None):
+    """
+    Safe wrapper for MediaStream creation.
+    Prevents NoneType or invalid path errors.
+    """
+    if not path:
+        raise TypeError("❌ Stream path is None or invalid.")
+
+    from pathlib import Path
+    if isinstance(path, str) and not path.startswith("http") and not Path(path).exists():
+        raise TypeError(f"❌ File does not exist: {path}")
+
+    return dynamic_media_stream(path=path, video=video, ffmpeg_params=ffmpeg_params)
+
 
 async def _clear_(chat_id: int) -> None:
     popped = db.pop(chat_id, None)
